@@ -8,4 +8,3 @@ curl -X POST http://192.168.1.229:13090/api/wikitext \
 
 ## server
 
-node index.js

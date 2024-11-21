@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "http": "node expressServer.js",
+    "grpc": "node grpcServer.js",
+    "grpcTest": "node grpcClient.js"
   },
   "author": "",
   "license": "ISC",
@@ -11,6 +13,10 @@
   "dependencies": {
     "body-parser": "^1.20.3",
     "express": "^4.21.1",
+    "lodash": "^4.17.21",
+    "piscina": "^4.7.0",
+    "@grpc/grpc-js": "^1.12.2",
+    "@grpc/proto-loader": "^0.7.13",
     "wtf_wikipedia": "^10.3.2"
   }
 }
