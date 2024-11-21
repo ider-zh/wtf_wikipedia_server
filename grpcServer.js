@@ -6,7 +6,7 @@ var protoLoader = require('@grpc/proto-loader');
 
 const Piscina = require('piscina');
 const piscina = new Piscina({
-    filename: path.resolve(__dirname, 'worker.js')
+    filename: path.resolve(__dirname, 'worker_tiny.js')
 });
 
 var packageDefinition = protoLoader.loadSync(
