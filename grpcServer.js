@@ -38,9 +38,14 @@ async function GetWikiTextParse(call, callback) {
         .replace(/&lt;/g, '<')
         .replace(/&amp;/g, '&')
 
-    const data = await piscina.run(wikiText);
+    try {
+        const data = await piscina.run(wikiText);
+        callback(null, { text: JSON.stringify(data) });
+    } catch (error) {
+        console.error('An error occurred:', error);
+        callback(null, { text: JSON.stringify({}) });
+    }
 
-    callback(null, { text: JSON.stringify(data) });
 
 }
 
