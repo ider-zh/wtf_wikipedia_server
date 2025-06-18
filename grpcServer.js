@@ -6,7 +6,8 @@ var protoLoader = require('@grpc/proto-loader');
 
 const Piscina = require('piscina');
 const piscina = new Piscina({
-    filename: path.resolve(__dirname, 'worker_tiny.js')
+    // filename: path.resolve(__dirname, 'worker_tiny.js')
+    filename: path.resolve(__dirname, 'worker_full.js')
 });
 
 var packageDefinition = protoLoader.loadSync(
@@ -45,13 +46,10 @@ async function GetWikiTextParse(call, callback) {
         console.error('An error occurred:', error);
         callback(null, { text: JSON.stringify({}) });
     }
-
-
 }
 
-
 const args = process.argv.slice(2); // 移除前两个元素（node 和 script路径）
-const port = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1], 10) : 50051;
+const port = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1], 10) : 30051;
 const host = args.includes('--host') ? args[args.indexOf('--host') + 1] : '0.0.0.0';
 /**
  * Starts an RPC server that receives requests for the Greeter service at the

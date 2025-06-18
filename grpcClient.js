@@ -20,7 +20,7 @@ const historyText2 = fs.readFileSync(__dirname + '/data/wikitext_2.txt', 'utf8')
 
 
 const args = process.argv.slice(2); // 移除前两个元素（node 和 script路径）
-const port = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1], 10) : 50051;
+const port = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1], 10) : 30051;
 const host = args.includes('--host') ? args[args.indexOf('--host') + 1] : '0.0.0.0';
 function main() {
 
