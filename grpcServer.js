@@ -1,14 +1,26 @@
 const path = require('path');
-var PROTO_PATH = __dirname + '/protos/wikiTextParser.proto';
-
+const he = require('he');
 var grpc = require('@grpc/grpc-js');
 var protoLoader = require('@grpc/proto-loader');
+
+const yargs = require('yargs/yargs'); // 使用 yargs 解析参数
+const { hideBin } = require('yargs/helpers');
+
+// --- 初始化 ---
+const argv = yargs(hideBin(process.argv)).options({
+    port: { type: 'number', default: 30051 },
+    host: { type: 'string', default: '0.0.0.0' },
+}).argv;
 
 const Piscina = require('piscina');
 const piscina = new Piscina({
     // filename: path.resolve(__dirname, 'worker_tiny.js')
     filename: path.resolve(__dirname, 'worker_full.js')
 });
+
+
+var PROTO_PATH = __dirname + '/protos/wikiTextParser.proto';
+const MAX_TEXT_LENGTH = 10000000; // 10MB
 
 var packageDefinition = protoLoader.loadSync(
     PROTO_PATH,
@@ -31,32 +43,44 @@ const logInterval = setInterval(() => {
 }, 60000); // 每分钟打印一次日志
 
 async function GetWikiTextParse(call, callback) {
+
+    // 1. 输入验证
+    if (!call.request.text || call.request.text.length > MAX_TEXT_LENGTH) {
+        return callback({
+            code: grpc.status.INVALID_ARGUMENT,
+            message: `Input text is missing or exceeds max length of ${MAX_TEXT_LENGTH} chars.`
+        });
+    }
+
     callCount++; // 增加调用次数
-    let wikiText = call.request.text
-        .replace(/&apos;/g, "'")
-        .replace(/&quot;/g, '"')
-        .replace(/&gt;/g, '>')
-        .replace(/&lt;/g, '<')
-        .replace(/&amp;/g, '&')
+    let wikiText = he.decode(call.request.text || '');
+    // let wikiText = call.request.text
+    //     .replace(/&apos;/g, "'")
+    //     .replace(/&quot;/g, '"')
+    //     .replace(/&gt;/g, '>')
+    //     .replace(/&lt;/g, '<')
+    //     .replace(/&amp;/g, '&')
 
     try {
         const data = await piscina.run(wikiText);
         callback(null, { text: JSON.stringify(data) });
     } catch (error) {
-        console.error('An error occurred:', error);
-        callback(null, { text: JSON.stringify({}) });
+        console.error('Worker pool error for a request:', error);
+        // 将错误返回给客户端
+        const grpcError = {
+            code: grpc.status.INTERNAL, // 使用标准 gRPC 状态码
+            message: `Failed to process wikitext: ${error.message}`
+        };
+        callback(grpcError, null);
     }
 }
 
-const args = process.argv.slice(2); // 移除前两个元素（node 和 script路径）
-const port = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1], 10) : 30051;
-const host = args.includes('--host') ? args[args.indexOf('--host') + 1] : '0.0.0.0';
 /**
  * Starts an RPC server that receives requests for the Greeter service at the
  * sample server port
  */
 function main() {
-    const address = `${host}:${port}`;
+    const address = `${argv.host}:${argv.port}`;
 
     var server = new grpc.Server();
     server.addService(wikiTextParser_proto.WikiTextParserService.service, { GetWikiTextParse: GetWikiTextParse });
@@ -66,8 +90,44 @@ function main() {
             return;
         }
         console.log(`Server bound to ${address}`);
-        logInterval
     });
 }
+
+// --- 添加优雅关停逻辑 ---
+const gracefulShutdown = async () => {
+    console.log('\nReceived kill signal, shutting down gracefully.');
+
+    // 1. 停止定时器
+    clearInterval(logInterval);
+
+    // 2. 停止 gRPC server 接受新请求
+    // server.tryShutdown() 会等待现有请求完成后再回调
+    await new Promise((resolve) => {
+        server.tryShutdown((err) => {
+            if (err) {
+                console.error('gRPC server shutdown error:', err);
+            }
+            console.log('gRPC server has been shut down.');
+            resolve();
+        });
+    });
+
+    // 3. 等待 Piscina 完成所有任务并销毁
+    try {
+        console.log('Draining and destroying worker pool...');
+        await piscina.destroy();
+        console.log('Worker pool destroyed.');
+    } catch (error) {
+        console.error('Error destroying piscina pool:', error);
+    }
+
+    console.log('Shutdown complete.');
+    process.exit(0);
+};
+
+// 监听进程退出信号
+process.on('SIGTERM', gracefulShutdown); // kill 命令
+process.on('SIGINT', gracefulShutdown);  // Ctrl+C
+
 
 main();

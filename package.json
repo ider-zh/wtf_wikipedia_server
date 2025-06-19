@@ -11,12 +11,14 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "body-parser": "^2.2.0",
-    "express": "^5.1.0",
-    "lodash": "^4.17.21",
-    "piscina": "^5.0.0",
     "@grpc/grpc-js": "^1.13.4",
     "@grpc/proto-loader": "^0.7.15",
-    "wtf_wikipedia": "^10.4.0"
+    "body-parser": "^2.2.0",
+    "express": "^5.1.0",
+    "he": "^1.2.0",
+    "lodash": "^4.17.21",
+    "piscina": "^5.0.0",
+    "wtf_wikipedia": "^10.4.0",
+    "yargs": "^18.0.0"
   }
 }
