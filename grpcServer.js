@@ -10,12 +10,20 @@ const { hideBin } = require('yargs/helpers');
 const argv = yargs(hideBin(process.argv)).options({
     port: { type: 'number', default: 30051 },
     host: { type: 'string', default: '0.0.0.0' },
+    worker: { 
+        type: 'string', 
+        default: 'full',
+        choices: ['full', 'tiny'],
+        description: '选择使用哪个 worker: full (完整模式) 或 tiny (精简模式)'
+    },
 }).argv;
 
 const Piscina = require('piscina');
+const workerFile = argv.worker === 'tiny' ? 'worker_tiny.js' : 'worker_full.js';
+console.log(`使用 ${argv.worker} 模式 worker: ${workerFile}`);
+
 const piscina = new Piscina({
-    // filename: path.resolve(__dirname, 'worker_tiny.js')
-    filename: path.resolve(__dirname, 'worker_full.js')
+    filename: path.resolve(__dirname, workerFile)
 });
 
 

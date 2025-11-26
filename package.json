@@ -5,6 +5,8 @@
   "scripts": {
     "http": "node expressServer.js",
     "grpc": "node grpcServer.js",
+    "grpc:full": "node grpcServer.js --worker full",
+    "grpc:tiny": "node grpcServer.js --worker tiny",
     "grpcTest": "node grpcClient.js"
   },
   "author": "",
