@@ -51,9 +51,9 @@ const linksTypeGroup = (item) => {
 function extract_wiki_text(wikiText) {
     // 第一步：使用 wtf_wikipedia 库解析维基文本
     let doc = wtf(wikiText)
-    
+
     // 第二步：仅提取核心信息，禁用大部分数据类型以提高性能
-    let data = doc.json({ 
+    let data = doc.json({
         images: false,       // 禁用图片信息（通常数据量大）
         sections: false,     // 禁用章节信息
         coordinates: false,  // 禁用地理坐标
@@ -61,7 +61,7 @@ function extract_wiki_text(wikiText) {
         categories: true,    // 启用分类信息（核心数据）
         plaintext: false     // 禁用纯文本（通常很长）
     })
-    
+
     // 第三步：处理链接数据
     // 使用 lodash 链式操作处理链接：
     // 1. 获取所有链接的 data 属性
@@ -79,7 +79,7 @@ function extract_wiki_text(wikiText) {
                 return item
             })
         }).value()
-    
+
     // 第四步：将处理后的链接数据添加到主数据对象
     if (Object.keys(linkGroup).length > 0) {
         data.links = linkGroup
@@ -92,7 +92,7 @@ function extract_wiki_text(wikiText) {
             delete data[key]
     }
 
-    return data
+    return JSON.stringify(data);
 }
 
 module.exports = extract_wiki_text

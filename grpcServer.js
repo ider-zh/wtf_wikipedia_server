@@ -10,8 +10,8 @@ const { hideBin } = require('yargs/helpers');
 const argv = yargs(hideBin(process.argv)).options({
     port: { type: 'number', default: 30051 },
     host: { type: 'string', default: '0.0.0.0' },
-    worker: { 
-        type: 'string', 
+    worker: {
+        type: 'string',
         default: 'full',
         choices: ['full', 'tiny'],
         description: '选择使用哪个 worker: full (完整模式) 或 tiny (精简模式)'
@@ -37,7 +37,7 @@ var packageDefinition = protoLoader.loadSync(
         longs: String,
         enums: String,
 
-        
+
         defaults: true,
         oneofs: true
     });
@@ -73,7 +73,7 @@ async function GetWikiTextParse(call, callback) {
 
     try {
         const data = await piscina.run(wikiText);
-        callback(null, { text: JSON.stringify(data) });
+        callback(null, { text: data });
     } catch (error) {
         console.error('Worker pool error for a request:', error);
         // 将错误返回给客户端
@@ -85,6 +85,7 @@ async function GetWikiTextParse(call, callback) {
     }
 }
 
+var server = new grpc.Server();
 /**
  * Starts an RPC server that receives requests for the Greeter service at the
  * sample server port
@@ -92,7 +93,6 @@ async function GetWikiTextParse(call, callback) {
 function main() {
     const address = `${argv.host}:${argv.port}`;
 
-    var server = new grpc.Server();
     server.addService(wikiTextParser_proto.WikiTextParserService.service, { GetWikiTextParse: GetWikiTextParse });
     server.bindAsync(address, grpc.ServerCredentials.createInsecure(), (err, port) => {
         if (err) {
