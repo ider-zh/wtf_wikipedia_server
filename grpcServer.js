@@ -28,7 +28,7 @@ const piscina = new Piscina({
 
 
 var PROTO_PATH = __dirname + '/protos/wikiTextParser.proto';
-const MAX_TEXT_LENGTH = 10000000; // 10MB
+const MAX_TEXT_LENGTH = 1_000_000_000; // 1GB
 
 var packageDefinition = protoLoader.loadSync(
     PROTO_PATH,
