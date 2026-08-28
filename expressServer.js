@@ -30,6 +30,11 @@ app.post('/api/wikitext', (req, res) => {
     });
 });
 
-app.listen(port, host, () => {
-    console.log(`Server is running at http://${host}:${port}`);
-});
+// 仅当直接运行本文件时才启动监听，便于测试通过 supertest 导入 app
+if (require.main === module) {
+    app.listen(port, host, () => {
+        console.log(`Server is running at http://${host}:${port}`);
+    });
+}
+
+module.exports = app;

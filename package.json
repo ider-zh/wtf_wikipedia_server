@@ -7,7 +7,14 @@
     "grpc": "node grpcServer.js",
     "grpc:full": "node grpcServer.js --worker full",
     "grpc:tiny": "node grpcServer.js --worker tiny",
-    "grpcTest": "node grpcClient.js"
+    "grpcTest": "node grpcClient.js",
+    "test": "jest"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/test/**/*.test.js"
+    ]
   },
   "author": "",
   "license": "ISC",
@@ -22,5 +29,9 @@
     "piscina": "^5.3.1",
     "wtf_wikipedia": "^10.4.2",
     "yargs": "^18.1.0"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "supertest": "^7.2.2"
   }
 }
