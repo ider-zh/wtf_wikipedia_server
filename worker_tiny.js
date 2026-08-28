@@ -1,22 +1,22 @@
 /**
  * 精简模式维基文本解析工作线程
- * 
+ *
  * 功能说明：
  * 1. 轻量级维基文本解析，仅提取核心信息
  * 2. 使用 wtf_wikipedia 库进行维基文本解析
  * 3. 仅提取：分类和链接信息
  * 4. 对链接进行分组处理，按类型分类
  * 5. 清理空数据字段，优化输出结构
- * 
+ *
  * 输出格式：
  * - categories: 页面分类信息
  * - links: 按类型分组的链接信息
- * 
+ *
  * 性能优势：
  * - 更快的解析速度（禁用大部分数据提取）
  * - 更小的内存占用
  * - 更适合高频调用场景
- * 
+ *
  * 使用场景：
  * - 需要快速获取页面基本信息的场景
  * - 链接分析和网络图谱构建
@@ -26,6 +26,7 @@
 
 const wtf = require('wtf_wikipedia')
 var _ = require("lodash")
+const { clampParams, stripPercentageTemplates } = require('./sanitize')
 
 /**
  * 链接类型分组函数
@@ -38,29 +39,44 @@ const linksTypeGroup = (item) => {
 
 /**
  * 提取维基文本的精简解析函数
- * 
+ *
  * 处理流程：
  * 1. 使用 wtf_wikipedia 解析输入文本
  * 2. 仅提取分类和链接信息（禁用其他数据类型以提高性能）
  * 3. 处理链接数据：去重、分组、清理字段
  * 4. 清理空字段，优化输出结构
- * 
+ *
  * @param {string} wikiText - 待解析的维基文本内容
  * @returns {Object} 解析后的精简结构化数据
  */
 function extract_wiki_text(wikiText) {
     // 第一步：使用 wtf_wikipedia 库解析维基文本
-    let doc = wtf(wikiText)
-
-    // 第二步：仅提取核心信息，禁用大部分数据类型以提高性能
-    let data = doc.json({
-        images: false,       // 禁用图片信息（通常数据量大）
-        sections: false,     // 禁用章节信息
-        coordinates: false,  // 禁用地理坐标
-        infoboxes: false,    // 禁用信息框（结构复杂）
-        categories: true,    // 启用分类信息（核心数据）
-        plaintext: false     // 禁用纯文本（通常很长）
-    })
+    // 注意：wtf(text) 在构造时即解析，percentage/percent-done 模板若含越界 decimals/digits
+    // 会在构造阶段抛 RangeError，因此整个构造 + 序列化需包在 try 中。
+    // 预处理：钳制 decimals/digits 到 [0,100] 整数，规避上游 toFixed() 崩溃。
+    let doc, data
+    try {
+        doc = wtf(clampParams(wikiText))
+        data = doc.json({
+            images: false,       // 禁用图片信息（通常数据量大）
+            sections: false,     // 禁用章节信息
+            coordinates: false,  // 禁用地理坐标
+            infoboxes: false,    // 禁用信息框（结构复杂）
+            categories: true,    // 启用分类信息（核心数据）
+            plaintext: false     // 禁用纯文本（通常很长）
+        })
+    } catch (e) {
+        // 兜底：移除 percentage / percent-done 模板后再试一次，保证请求不崩溃
+        doc = wtf(stripPercentageTemplates(wikiText))
+        data = doc.json({
+            images: false,       // 禁用图片信息（通常数据量大）
+            sections: false,     // 禁用章节信息
+            coordinates: false,  // 禁用地理坐标
+            infoboxes: false,    // 禁用信息框（结构复杂）
+            categories: true,    // 启用分类信息（核心数据）
+            plaintext: false     // 禁用纯文本（通常很长）
+        })
+    }
 
     // 第三步：处理链接数据
     // 使用 lodash 链式操作处理链接：

@@ -1,13 +1,13 @@
 /**
  * 完整模式维基文本解析工作线程
- * 
+ *
  * 功能说明：
  * 1. 解析维基文本格式，提取所有类型的信息
  * 2. 使用 wtf_wikipedia 库进行维基文本解析
  * 3. 提取内容包括：图片、坐标、信息框、分类、链接、纯文本
  * 4. 对链接进行分组处理，按类型分类
  * 5. 清理空数据字段，优化输出结构
- * 
+ *
  * 输出格式：
  * - images: 图片信息数组（清理了空的 links 字段）
  * - coordinates: 地理坐标信息
@@ -15,7 +15,7 @@
  * - categories: 页面分类
  * - links: 按类型分组的链接信息
  * - plaintext: 纯文本内容
- * 
+ *
  * 使用场景：
  * - 需要完整维基页面信息的应用
  * - 数据分析和挖掘
@@ -24,6 +24,7 @@
 
 const wtf = require('wtf_wikipedia')
 var _ = require("lodash")
+const { clampParams, stripPercentageTemplates } = require('./sanitize')
 
 /**
  * 链接类型分组函数
@@ -36,30 +37,46 @@ const linksTypeGroup = (item) => {
 
 /**
  * 提取维基文本的主要解析函数
- * 
+ *
  * 处理流程：
  * 1. 使用 wtf_wikipedia 解析输入文本
  * 2. 提取完整信息（图片、坐标、信息框、分类、纯文本）
  * 3. 处理链接数据：去重、分组、清理字段
  * 4. 清理空字段，优化输出结构
  * 5. 特殊处理图片数据中的空 links 字段
- * 
+ *
  * @param {string} wikiText - 待解析的维基文本内容
  * @returns {Object} 解析后的结构化数据
  */
 function extract_wiki_text(wikiText) {
     // 第一步：使用 wtf_wikipedia 库解析维基文本
-    let doc = wtf(wikiText)
+    // 注意：wtf(text) 在构造时即解析，percentage/percent-done 模板若含越界 decimals/digits
+    // 会在构造阶段抛 RangeError，因此整个构造 + 序列化需包在 try 中。
+    // 预处理：钳制 decimals/digits 到 [0,100] 整数，规避上游 toFixed() 崩溃。
+    let doc, data
+    try {
+        doc = wtf(clampParams(wikiText))
+        data = doc.json({
+            images: true,        // 启用图片信息
+            sections: true,      // 启用章节信息
+            coordinates: true,   // 启用地理坐标
+            infoboxes: true,     // 启用信息框
+            categories: true,    // 启用分类信息
+            plaintext: true      // 启用纯文本提取
+        })
+    } catch (e) {
+        // 兜底：移除 percentage / percent-done 模板后再试一次，保证请求不崩溃
+        doc = wtf(stripPercentageTemplates(wikiText))
+        data = doc.json({
+            images: true,        // 启用图片信息
+            sections: true,      // 启用章节信息
+            coordinates: true,   // 启用地理坐标
+            infoboxes: true,     // 启用信息框
+            categories: true,    // 启用分类信息
+            plaintext: true      // 启用纯文本提取
+        })
+    }
 
-    // 第二步：提取完整信息，启用所有数据类型
-    let data = doc.json({
-        images: true,        // 启用图片信息
-        sections: true,     // 启用章节信息
-        coordinates: true,   // 启用地理坐标
-        infoboxes: true,     // 启用信息框
-        categories: true,    // 启用分类信息
-        plaintext: true      // 启用纯文本提取
-    })
     // 第三步：处理链接数据
     // 使用 lodash 链式操作处理链接：
     // 1. 获取所有链接的 data 属性

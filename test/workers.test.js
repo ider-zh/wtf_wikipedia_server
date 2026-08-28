@@ -37,3 +37,22 @@ describe('worker_tiny', () => {
         expect(() => extractTiny('')).not.toThrow();
     });
 });
+
+describe('wtf_wikipedia percentage() crash workaround', () => {
+    const TEMPLATES = [
+        '{{percentage|1|2|decimals=200}}',
+        '{{percentage|1|2|decimals=2.5}}',
+        '{{percentage|1|2|200}}',
+        '{{percent-done|done=1|total=2|digits=200}}',
+    ];
+    test.each(TEMPLATES)('full worker does not throw on %s', (t) => {
+        expect(() => extractFull(t)).not.toThrow();
+        const out = JSON.parse(extractFull(t));
+        expect(out).toHaveProperty('plaintext');
+    });
+    test.each(TEMPLATES)('tiny worker does not throw on %s', (t) => {
+        expect(() => extractTiny(t)).not.toThrow();
+        const out = JSON.parse(extractTiny(t));
+        expect(typeof out).toBe('object');
+    });
+});

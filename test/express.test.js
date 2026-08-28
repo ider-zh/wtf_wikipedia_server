@@ -22,4 +22,12 @@ describe('Express server', () => {
         expect(res.status).toBe(201);
         expect(typeof res.body.text).toBe('string');
     });
+
+    test('POST /api/wikitext with percentage template does not crash', async () => {
+        const res = await request(app)
+            .post('/api/wikitext')
+            .send({ wikitext: '{{percentage|1|2|decimals=200}}' });
+        expect(res.status).toBe(201);
+        expect(typeof res.body.text).toBe('string');
+    });
 });

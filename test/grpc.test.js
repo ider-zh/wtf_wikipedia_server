@@ -93,3 +93,12 @@ test('GetWikiTextParse returns INVALID_ARGUMENT for empty text', (done) => {
         done();
     });
 }, 10000);
+
+test('GetWikiTextParse handles wikitext with percentage template (no crash)', (done) => {
+    client.GetWikiTextParse({ text: '{{percentage|1|2|decimals=200}}' }, (err, response) => {
+        expect(err).toBeFalsy();
+        expect(response).toHaveProperty('text');
+        expect(() => JSON.parse(response.text)).not.toThrow();
+        done();
+    });
+}, 10000);
