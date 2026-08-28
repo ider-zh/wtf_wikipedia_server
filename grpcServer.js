@@ -75,7 +75,10 @@ async function GetWikiTextParse(call, callback) {
         const data = await piscina.run(wikiText);
         callback(null, { text: data });
     } catch (error) {
-        console.error('Worker pool error for a request:', error);
+        // 记录崩溃日志：附带触发崩溃的 wikitext（截断），便于缓存/复现崩溃样例
+        const snippet = String(call.request.text || '').slice(0, 500);
+        console.error('Worker pool error for a request:', error && error.stack ? error.stack : error);
+        console.error('Offending wikitext (first 500 chars):', snippet);
         // 将错误返回给客户端
         const grpcError = {
             code: grpc.status.INTERNAL, // 使用标准 gRPC 状态码
