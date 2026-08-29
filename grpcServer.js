@@ -1,5 +1,6 @@
 const path = require('path');
 const he = require('he');
+const { recordCrashCase } = require('./crashCase');
 var grpc = require('@grpc/grpc-js');
 var protoLoader = require('@grpc/proto-loader');
 
@@ -75,10 +76,12 @@ async function GetWikiTextParse(call, callback) {
         const data = await piscina.run(wikiText);
         callback(null, { text: data });
     } catch (error) {
-        // 记录崩溃日志：附带触发崩溃的 wikitext（截断），便于缓存/复现崩溃样例
+        // 记录崩溃日志：附带触发崩溃的 wikitext（截断），便于快速定位
         const snippet = String(call.request.text || '').slice(0, 500);
         console.error('Worker pool error for a request:', error && error.stack ? error.stack : error);
         console.error('Offending wikitext (first 500 chars):', snippet);
+        // 落盘完整样例，供 test/crash-cases.test.js 自动回放为回归用例
+        recordCrashCase(call.request.text, error);
         // 将错误返回给客户端
         const grpcError = {
             code: grpc.status.INTERNAL, // 使用标准 gRPC 状态码

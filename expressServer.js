@@ -2,6 +2,7 @@ const express = require('express')
 const wtf = require('wtf_wikipedia')
 const bodyParser = require('body-parser');
 const { clampParams, stripPercentageTemplates } = require('./sanitize');
+const { recordCrashCase } = require('./crashCase');
 
 const args = process.argv.slice(2); // 移除前两个元素（node 和 script路径）
 const port = args.includes('--port') ? parseInt(args[args.indexOf('--port') + 1], 10) : 13090;
@@ -30,6 +31,7 @@ app.post('/api/wikitext', (req, res) => {
     try {
         text = wtf(clampParams(data.wikitext)).text();
     } catch (e) {
+        recordCrashCase(data.wikitext, e);
         text = wtf(stripPercentageTemplates(data.wikitext)).text();
     }
 

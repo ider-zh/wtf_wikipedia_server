@@ -1,2 +1,4 @@
 node_modules/
 .pm2
+# 线上崩溃时落盘的完整 wikitext 样例（可能很大，不入库）
+data/crash-cases/

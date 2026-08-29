@@ -27,6 +27,7 @@
 const wtf = require('wtf_wikipedia')
 var _ = require("lodash")
 const { clampParams, stripPercentageTemplates } = require('./sanitize')
+const { recordCrashCase } = require('./crashCase')
 
 /**
  * 链接类型分组函数
@@ -66,6 +67,8 @@ function extract_wiki_text(wikiText) {
             plaintext: false     // 禁用纯文本（通常很长）
         })
     } catch (e) {
+        // 记录完整崩溃样例，供 test/crash-cases.test.js 自动回放为回归用例
+        recordCrashCase(wikiText, e)
         // 兜底：移除 percentage / percent-done 模板后再试一次，保证请求不崩溃
         doc = wtf(stripPercentageTemplates(wikiText))
         data = doc.json({
