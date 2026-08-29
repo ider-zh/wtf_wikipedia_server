@@ -10,10 +10,14 @@
  *     （仅在解析仍然抛错时调用，尽量不影响正常页面的输出）
  */
 
-// 将 named 参数 decimals=/digits= 钳制到 [0,100] 整数
+// 将 percentage 家族模板的 decimals/digits 钳制到 [0,100] 整数
+// 覆盖两种写法：
+//   1) named 参数：{{percentage|...|decimals=200}}
+//   2) 位置参数：{{Percentage|6|1|113}}  —— 第 3 个位置参数即 decimals
 function clampParams(text) {
     if (typeof text !== 'string') return '';
-    return text.replace(
+    // 1) named：decimals=N / digits=N
+    text = text.replace(
         /\b(decimals|digits)\s*=\s*(-?[0-9]*\.?[0-9]+)/gi,
         (match, name, num) => {
             let n = Number(num);
@@ -22,6 +26,17 @@ function clampParams(text) {
             return `${name}=${n}`;
         }
     );
+    // 2) 位置参数：{{percentage|num|den|decimals}} 中的第 3 个参数
+    text = text.replace(
+        /(\{\{\s*percent(?:age|-done)\s*\|[^|{}]*\|[^|{}]*\|)(-?[0-9]*\.?[0-9]+)/gi,
+        (match, prefix, num) => {
+            let n = Number(num);
+            if (!Number.isFinite(n)) return match;
+            n = Math.max(0, Math.min(100, Math.trunc(n)));
+            return `${prefix}${n}`;
+        }
+    );
+    return text;
 }
 
 // 移除 {{percentage|...}} 与 {{percent-done|...}}（含大小写变体），单层、非贪婪
