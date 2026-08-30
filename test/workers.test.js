@@ -44,6 +44,8 @@ describe('wtf_wikipedia percentage() crash workaround', () => {
         '{{percentage|1|2|decimals=2.5}}',
         '{{percentage|1|2|200}}',
         '{{percent-done|done=1|total=2|digits=200}}',
+        '{{percent and number|50|100|decimals=200}}',
+        '{{percent and number|50|100|200}}',
     ];
     test.each(TEMPLATES)('full worker does not throw on %s', (t) => {
         expect(() => extractFull(t)).not.toThrow();

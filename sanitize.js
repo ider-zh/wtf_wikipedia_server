@@ -14,6 +14,10 @@
 // 覆盖两种写法：
 //   1) named 参数：{{percentage|...|decimals=200}}
 //   2) 位置参数：{{Percentage|6|1|113}}  —— 第 3 个位置参数即 decimals
+//
+// 上游存在两处同类缺陷（wtf_wikipedia.cjs:5604 percentage 与 6167
+// 'percent and number'），均以用户可控的 decimals 调用 toFixed()，
+// 因此两个模板名都要覆盖。第三处 toFixed(1) 为硬编码常量，无风险。
 function clampParams(text) {
     if (typeof text !== 'string') return '';
     // 1) named：decimals=N / digits=N
@@ -28,7 +32,7 @@ function clampParams(text) {
     );
     // 2) 位置参数：{{percentage|num|den|decimals}} 中的第 3 个参数
     text = text.replace(
-        /(\{\{\s*percent(?:age|-done)\s*\|[^|{}]*\|[^|{}]*\|)(-?[0-9]*\.?[0-9]+)/gi,
+        /(\{\{\s*percent(?:age|-done| and number)\s*\|[^|{}]*\|[^|{}]*\|)(-?[0-9]*\.?[0-9]+)/gi,
         (match, prefix, num) => {
             let n = Number(num);
             if (!Number.isFinite(n)) return match;
@@ -42,7 +46,7 @@ function clampParams(text) {
 // 移除 {{percentage|...}} 与 {{percent-done|...}}（含大小写变体），单层、非贪婪
 function stripPercentageTemplates(text) {
     if (typeof text !== 'string') return '';
-    return text.replace(/\{\{\s*percent(?:age|-done)\b[^{}]*\}\}/gi, '');
+    return text.replace(/\{\{\s*percent(?:age|-done| and number)\b[^{}]*\}\}/gi, '');
 }
 
 module.exports = { clampParams, stripPercentageTemplates };
