@@ -1,167 +1,99 @@
 # WTF Wikipedia Server
 
-基于 wtf_wikipedia 库的维基文本解析服务器，提供 HTTP REST API 和 gRPC 两种服务接口。
+基于 **wtf_wikipedia** 的 Node.js 维基文本解析服务，同时提供独立的 graph-only JSONL 批处理接口。
 
-## 功能特性
+本项目负责服务、worker 和图抽取适配层；不维护后端 `wtf_wikipedia` 的源码分叉。图模式另外使用沙箱化的 WikiParser-Node AST 处理部分歧义，不等同于完整 MediaWiki 渲染或模板展开。
 
-- 🚀 双协议支持：HTTP REST API 和 gRPC
-- ⚡ 高性能：使用工作线程池处理并发请求
-- 📊 监控：内置调用统计和性能监控
-- 🔧 灵活配置：支持自定义端口和主机地址
-- 🛡️ 安全性：输入验证和错误处理
+## 选择入口
+
+| 需求 | 命令 | 返回内容 |
+|---|---|---|
+| 通过 HTTP 获取纯文本 | `npm run http` | `{ "text": "…" }` |
+| 通过 gRPC 获取结构化页面信息 | `npm run grpc` | `text` 字段内的 JSON 字符串，默认 full worker |
+| 通过 gRPC 只获取分类与链接 | `npm run grpc:tiny` | `text` 字段内的精简 JSON 字符串 |
+| 从管道批量抽取图元数据 | `node bin/graph.js` | 每行一条 graph JSON；不启动服务 |
+
+**隐私边界：**只有 graph-only 路径提供专门的无正文输出/无正文落盘契约。HTTP/gRPC 保留原有 crash-case 记录机制，失败输入可能写入 `data/crash-cases/`；gRPC 错误还可能打印输入片段。不要把图模式的保证套用到服务模式。
+
+## 为什么批处理使用长驻 CLI
+
+`node bin/graph.js` **每次启动只初始化一次解析器，然后在同一进程内持续处理多条 JSONL 记录**；不是每解析一页就重新启动。离线任务可按分片分配独立进程，利用 stdin/stdout 背压限制在途数据，直到 EOF 或致命错误退出。
+
+这样既能摊薄初始化成本，也便于用合成输入复现故障、按任务隔离资源。并发、超时、取消和 checkpoint 仍由调用方负责；逐页文档解析成本不会因进程复用而消失。
+
+现有 gRPC 是 full/tiny 页解析的单次 RPC，**尚未提供 graph streaming RPC**。两者并非相同解析负载，不能直接比较吞吐，也未做同核心性能基准。未来若需要跨机器或多客户端复用，可增加复用 `src/graph` 的流式适配器，不复制解析策略。详见[进程生命周期与接口取舍](docs/architecture.md#进程生命周期与接口取舍)。
 
 ## 快速开始
 
-### 安装依赖
+使用满足锁定依赖引擎要求的 Node.js（建议 Node.js 24.11+），在仓库根目录安装依赖：
 
-```bash
-npm install
+```sh
+npm ci --ignore-scripts
 ```
 
-### 启动服务
+### HTTP
 
-#### HTTP 服务器
-
-```bash
-# 默认端口 13090
-npm run http
-
-# 自定义端口
-npm run http -- --port 8080 --host 0.0.0.0
+```sh
+npm run http -- --host 127.0.0.1 --port 13090
 ```
 
-#### gRPC 服务器
-
-```bash
-# 完整模式（默认）
-npm run grpc
-
-# 精简模式（高性能）
-npm run grpc:tiny
-
-# 自定义端口和模式
-npm run grpc -- --port 30052 --worker tiny
-
-# 使用 PM2 进程管理
-pm2 start npm -- run grpc -- --port 30051 --worker full
+```sh
+curl http://127.0.0.1:13090/ping
+curl -X POST http://127.0.0.1:13090/api/wikitext \
+  -H 'Content-Type: application/json' \
+  -d '{"wikitext":"Hello [[World]]"}'
 ```
 
-### 进程管理
+### gRPC
 
-```bash
-# 查看进程列表
-pm2 list
-
-# 监控进程状态
-pm2 monit
-
-# 停止进程
-pm2 stop wtf_wikipedia
-
-# 删除进程
-pm2 delete wtf_wikipedia
+```sh
+npm run grpc -- --host 127.0.0.1 --port 30051
+# 或仅分类与链接：npm run grpc:tiny -- --host 127.0.0.1
+# 在另一个终端运行示例客户端：
+npm run grpcTest -- --host 127.0.0.1 --port 30051
 ```
 
-或使用 Makefile：
+协议定义在 [`protos/wikiTextParser.proto`](protos/wikiTextParser.proto)。HTTP 不使用 full/tiny 切换，两种 worker 属于 gRPC。
 
-```bash
-make start       # 启动完整模式服务
-make start-tiny  # 启动精简模式服务
-make stop        # 停止所有服务
-make delete      # 删除所有进程
-make list        # 查看进程
-make monit       # 监控进程
-make restart     # 重启完整模式服务
-make restart-tiny # 重启精简模式服务
+### Graph-only JSONL
+
+```sh
+selected-revision-command | node bin/graph.js > graph.jsonl
 ```
 
-## API 使用示例
+左侧程序负责输出所选 revision 的输入记录；这里不是一个内置命令。输入含瞬态正文，**不要先保存输入 JSONL**。必须检查管道各阶段退出码，并等完整 EOF 成功后才发布输出。
 
-### HTTP API
+字段、大小限制、部分观察、错误码和隐私契约见 [Graph-only 协议](docs/graph-jsonl.md)。
 
-#### 健康检查
+## 项目结构
 
-```bash
-curl http://localhost:13090/ping
+```text
+bin/             graph JSONL 命令行入口
+src/
+  http/          HTTP 服务
+  grpc/          gRPC 服务与 worker 调度
+  workers/       full / tiny 页面解析
+  shared/        服务路径的预处理与 crash-case 记录
+  graph/         图抽取、辅助 AST 与 literal masking
+protos/          gRPC 协议
+examples/        gRPC 客户端与 HTTP 请求示例
+data/            已有示例文本；crash-cases 为运行时忽略目录
+test/            按 graph / services / workers / regression 分组的测试
+docs/            接口、架构、开发与迁移说明
 ```
 
-#### 维基文本解析
+根目录保留的 `.js` 文件仅用于兼容旧路径，业务实现位于 `src/`。新增调用请使用 npm scripts、`bin/` 和 `src/`，不要继续往根目录增加实现。完整路径映射见 [迁移说明](docs/migration.md)。
 
-```bash
-curl -X POST http://localhost:13090/api/wikitext \
-     -H "Content-Type: application/json" \
-     -d '{"wikitext": "[[Greater_Boston|Boston]]s [[Fenway_Park|baseball field]] has a {{convert|37|ft}} wall. <ref>Field of our Fathers: By Richard Johnson</ref>"}'
+## 开发与文档
+
+```sh
+npm test -- --runInBand
 ```
 
-### gRPC API
+- [HTTP / gRPC 接口与运行选项](docs/api.md)
+- [Graph-only JSONL 协议](docs/graph-jsonl.md)
+- [架构、后端与目录边界](docs/architecture.md)
+- [开发、测试与进程管理](docs/development.md)
+- [旧路径兼容与迁移](docs/migration.md)
 
-```bash
-# 测试 gRPC 客户端
-npm run grpcTest
-```
-
-## 响应示例
-
-```json
-{
-  "text": "{\"categories\":[\"Baseball\",\"Boston\"],\"links\":[{\"text\":\"Boston\",\"page\":\"Greater_Boston\"},{\"text\":\"baseball field\",\"page\":\"Fenway_Park\"}],\"plaintext\":\"Bostons baseball field has a 37 ft wall.\"}"
-}
-```
-
-## 配置选项
-
-- **端口**: 通过 `--port` 参数指定
-- **主机**: 通过 `--host` 参数指定 (默认: 0.0.0.0)
-- **Worker 模式**: 通过 `--worker` 参数指定 (full/tiny)
-- **最大文本长度**: 10MB
-- **请求限制**: 50MB (HTTP)
-
-## 工作模式
-
-项目提供两种解析模式：
-
-### 完整模式 (full)
-- **Worker**: `worker_full.js`
-- **功能**: 提取所有信息（图片、坐标、信息框、分类、链接、纯文本）
-- **适用场景**: 需要完整维基页面信息的应用、数据分析、内容管理
-- **性能**: 较慢，内存占用较高
-
-### 精简模式 (tiny)
-- **Worker**: `worker_tiny.js`
-- **功能**: 仅提取分类和链接信息
-- **适用场景**: 高频调用、链接分析、分类统计、高并发API服务
-- **性能**: 更快，内存占用较低
-
-### 使用示例
-
-```bash
-# 启动完整模式
-npm run grpc:full
-# 或
-make start
-
-# 启动精简模式
-npm run grpc:tiny
-# 或
-make start-tiny
-
-# 自定义参数
-node grpcServer.js --port 30052 --worker tiny --host 127.0.0.1
-```
-
-## 监控
-
-gRPC 服务器每分钟会打印调用次数统计：
-
-```
-2023-11-26 10:30:00: GetWikiTextParse has been called 15 times.
-```
-
-## 技术栈
-
-- Node.js
-- Express (HTTP 服务器)
-- gRPC (远程过程调用)
-- wtf_wikipedia (维基文本解析)
-- Piscina (工作线程池)
-- lodash (工具库)
+测试与目录整理不代表任意历史 dump 已完成重建。模板、历史标题和辅助 AST 的覆盖限制应随图产物保留，不以 `ok` 状态宣称完整恢复。

@@ -1,5 +1,5 @@
 const request = require('supertest');
-const app = require('../expressServer');
+const app = require('../../src/http/server');
 
 describe('Express server', () => {
     test('GET /ping returns pong with status 201', async () => {

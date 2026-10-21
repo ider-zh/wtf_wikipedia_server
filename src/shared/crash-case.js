@@ -2,7 +2,7 @@
  * 崩溃样例落盘模块
  *
  * 目的：把线上真实触发解析异常的 wikitext 完整保存下来，
- *       使其可以直接作为回归测试用例（由 test/crash-cases.test.js 自动回放）。
+ *       使其可以直接作为回归测试用例（由 test/regression/crash-cases.test.js 自动回放）。
  *
  * 行为：
  * - 写入 data/crash-cases/<sha256 前 16 位>.txt
@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const CRASH_CASE_DIR = path.resolve(__dirname, 'data/crash-cases');
+const CRASH_CASE_DIR = path.resolve(__dirname, '../../data/crash-cases');
 const MAX_BYTES = 5 * 1024 * 1024; // 5MB
 
 function recordCrashCase(wikiText, error) {

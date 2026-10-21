@@ -1,10 +1,10 @@
 const fs = require('fs');
 const path = require('path');
-const extractFull = require('../worker_full');
-const extractTiny = require('../worker_tiny');
-const { CRASH_CASE_DIR } = require('../crashCase');
+const extractFull = require('../../src/workers/full');
+const extractTiny = require('../../src/workers/tiny');
+const { CRASH_CASE_DIR } = require('../../src/shared/crash-case');
 
-const DATA_DIR = path.resolve(__dirname, '..', 'data');
+const DATA_DIR = path.resolve(__dirname, '../..', 'data');
 
 /**
  * 收集需要回放的样例：

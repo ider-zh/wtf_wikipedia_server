@@ -1,5 +1,5 @@
-const extractFull = require('../worker_full');
-const extractTiny = require('../worker_tiny');
+const extractFull = require('../../src/workers/full');
+const extractTiny = require('../../src/workers/tiny');
 
 const SAMPLE = '[[Apple]] is a [[Category:Fruit]] fruit, also see [[Banana]].';
 
