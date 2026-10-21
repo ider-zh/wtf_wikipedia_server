@@ -4,13 +4,20 @@ const DEFAULT_MAX_BYTES = 16 * 1024 * 1024
 class GraphError extends Error {
   constructor(code) { super(code); this.code = code }
 }
+// Conservative output boundary, not a wikitext parser or full title validator.
+function isSafeTitle(value) {
+  return typeof value === 'string' && !/[\[\]{}<>|\u0000-\u001f\u007f]/u.test(value)
+}
 function normalizeTarget(value) {
+  // Check before fragment removal so malformed suffixes cannot be hidden.
+  if (!isSafeTitle(value)) throw new GraphError('PARSE_ERROR')
   return value.replace(/^:/, '').split('#', 1)[0].replace(/_/g, ' ').trim()
 }
 function extractGraph(input, {maxBytes = DEFAULT_MAX_BYTES} = {}) {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > DEFAULT_MAX_BYTES) throw new GraphError('INVALID_OPTIONS')
   if (!input || typeof input !== 'object' || Array.isArray(input) ||
       !['page_id','revision_id'].every(k => typeof input[k] === 'string' && /^\d+$/.test(input[k]) || Number.isSafeInteger(input[k]) && input[k] >= 0) ||
-      !Number.isInteger(input.ns) || typeof input.title !== 'string' || typeof input.timestamp !== 'string' ||
+      !Number.isInteger(input.ns) || !isSafeTitle(input.title) || typeof input.timestamp !== 'string' ||
       !['present','empty','hidden','missing'].includes(input.text_state) ||
       (input.redirect_target != null && typeof input.redirect_target !== 'string')) throw new GraphError('INVALID_RECORD')
   const out = {page_id:input.page_id,ns:input.ns,title:input.title,revision_id:input.revision_id,timestamp:input.timestamp,text_state:input.text_state,links:[],categories:[],redirect_target:null,parse_status:'ok'}
@@ -25,7 +32,7 @@ function extractGraph(input, {maxBytes = DEFAULT_MAX_BYTES} = {}) {
   if (input.text === '') return out
   // wtf 10.4.2 interprets links inside literal-extension tags as graph edges.
   // Refuse these records rather than inventing another wikitext parser here.
-  if (/<\s*(?:nowiki|pre|source|syntaxhighlight)\b/iu.test(input.text)) throw new GraphError('UNSUPPORTED_MARKUP')
+  if (/<\s*(?:nowiki|pre|source|syntaxhighlight|templatedata)\b/iu.test(input.text)) throw new GraphError('UNSUPPORTED_MARKUP')
   const saved = {}
   try {
     // The library is synchronous. Suppress its diagnostics only in this opt-in path.
