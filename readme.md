@@ -1,5 +1,28 @@
 # WTF Wikipedia Server
 
+## Opt-in graph-only JSONL (no body retention)
+
+Run `node graph-cli.js` directly; this does **not** start or change the legacy HTTP/gRPC APIs. Install the existing lock with `npm ci --ignore-scripts` (npm 12 may require `--allow-remote=all` for the lock's mirror tarball URLs). No new dependency or lock change is required.
+
+```sh
+# XML selection producer emits selected-revision records on stdout only.
+selected-revision-command | node /path/to/wtf_wikipedia_server/graph-cli.js > graph.jsonl
+# Smaller byte bound (default and hard maximum: 16777216 bytes per JSONL line):
+selected-revision-command | node /path/to/wtf_wikipedia_server/graph-cli.js --max-line-bytes 1048576 > graph.jsonl
+```
+
+The producer/parent must check **both** process exit codes, consume stderr, and only publish output after successful EOF; a valid prefix can precede a later error. Do not write producer JSONL to a file: it contains transient source bodies. The CLI processes records sequentially, pauses stdin on stdout backpressure, accepts a final non-newline-terminated record, and rejects blank lines, invalid UTF-8/JSON and over-limit lines before parsing them. The bound includes JSON metadata/escaping, not just text. This is a bounded input queue, not a hard RSS or parser CPU-time bound.
+
+Input: `{page_id, ns, title, revision_id, timestamp, text_state, text?, redirect_target?}`. IDs must be exact decimal strings or safe nonnegative JS integers (large IDs **must** be strings). Metadata is copied without lowercasing. `text_state` is `present` (nonempty string), `empty` (empty string), `hidden` or `missing` (absent/null/empty text). Hidden/missing records emit `parse_status:"unavailable"`, no edges and null redirect; present/empty emit `"ok"`. The producer must validate timestamp and namespace/source identity; the graph extractor does not reconstruct historical titles.
+
+Output has **exactly** `{page_id,ns,title,revision_id,timestamp,text_state,links,categories,redirect_target,parse_status}`. `links` is a sorted deduplicated array of `{target,namespace?:integer}` (namespace 14 is reported for recognized Category/分类/分類 prefixes; other namespaces remain unresolved). Categories are sorted unique names **without** namespace prefixes. Fragments are removed; underscores become spaces; case is preserved. Escaped `[[:Category:...]]` is a page link, not membership. Redirects derive **only from selected wikitext**, including English `#REDIRECT`, Chinese `#重定向` and `#重新導向`; incoming export-time `redirect_target` is ignored.
+
+`require('./graph').extractGraph(record, {maxBytes?})` is the independent synchronous export. It uses the real locked `wtf_wikipedia` parser, not the legacy workers or crash recorder. Namespace/directive aliases are normalized before the library call. A temporary zero-width prefix works around the library's two-character category minimum and is removed from category results. There is no additional `he.decode`: XML decoding belongs to the XML producer; the library retains its own entity semantics. The graph path does not serialize raw text, display anchors, plaintext, sections, images, infoboxes, comments or editors. Synchronous library console diagnostics are suppressed only during this opt-in call; errors never contain library messages or source text.
+
+On failure the CLI emits **no record for that input**, writes only `{"code":"CODE","request_id":N}` to stderr (1-based line ordinal), stops, and exits 1. Codes: `INVALID_OPTIONS`, `INVALID_JSON` (also invalid UTF-8), `LINE_TOO_LARGE`, `INVALID_RECORD`, `INVALID_TEXT`, `INVALID_TEXT_STATE`, `TEXT_TOO_LARGE`, `UNSUPPORTED_MARKUP`, `PARSE_ERROR`, `IO_ERROR`. Success exits 0 with empty stderr. No fallback emits fake empty data. This library version incorrectly extracts graph edges from literal-extension markup: records containing nowiki/pre/source/syntaxhighlight opening tags fail closed with `UNSUPPORTED_MARKUP`, rather than implementing a second parser. This is a known pilot limitation, not MediaWiki-complete parsing. Parser CPU/RSS isolation, siteinfo-complete namespace mapping and full template expansion remain caller/library concerns.
+
+Tests: `node node_modules/jest/bin/jest.js --runInBand`. This explicit Node command works on noexec data mounts where `npm test` cannot execute `.bin/jest`; native `.node` dependency binaries must reside in an executable host cache (not source bodies). Privacy tests use runtime-generated canaries, assert sanitized errors/no file writes/no crash recorder, and execute the real CLI/library. Existing legacy tests remain unchanged.
+
 基于 wtf_wikipedia 库的维基文本解析服务器，提供 HTTP REST API 和 gRPC 两种服务接口。
 
 ## 功能特性
