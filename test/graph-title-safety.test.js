@@ -5,7 +5,6 @@ const {extractGraph} = require('../graph')
 const base = {page_id:'1',ns:0,title:'Title',revision_id:'2',timestamp:'2001-01-01T00:00:00Z',text_state:'present'}
 
 test.each([
- ['localized image caption', '[[文件:Image.jpg|thumb|CAPTIONCANARY [[NestedLink|display]]]]'],
  ['link pipe', '[[Bad|pipe|tail]]'],
  ['category braces', '[[Category:Bad{{caption}}]]'],
  ['redirect markup', '#REDIRECT [[Bad<em>Caption</em>]]'],
@@ -22,7 +21,7 @@ test.each(['Bad|Caption','Bad[Caption]','Bad{Caption}','Bad<em>Caption</em>','Ba
 
 test('invalid output title cannot leak a body or a partial current record through the CLI', () => {
  const canary = 'CAPTION_' + randomUUID()
- const text = `BODY_${canary} [[SafeCurrent]] [[文件:Image.jpg|thumb|${canary} [[NestedLink|display]]]]`
+ const text = `BODY_${canary} [[SafeCurrent]] [[Bad|${canary}|tail]]`
  const previous = {...base,text:'[[Previous]]'}
  const expectedPrefix = JSON.stringify(extractGraph(previous)) + '\n'
  for (const prefix of ['', JSON.stringify(previous) + '\n']) {

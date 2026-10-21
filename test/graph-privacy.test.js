@@ -14,5 +14,5 @@ test('parser failures neither invoke crash recorder nor write source bodies', ()
 })
 test('no extra XML entity decoding and ignored markup stays ignored', () => {
  expect(extractGraph({...base,text:'[[A&amp;amp;B]]'}).links).toEqual([{target:'A&amp;B'}])
- expect(() => extractGraph({...base,text:'<nowiki>[[分类:Private]] [[Secret]]</nowiki> [[Visible]]'})).toThrow('UNSUPPORTED_MARKUP')
+ expect(extractGraph({...base,text:'<nowiki>[[分类:Private]] [[Secret]]</nowiki> [[Visible]]'})).toMatchObject({links:[{target:'Visible'}],categories:[]})
 })

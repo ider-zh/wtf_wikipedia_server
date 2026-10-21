@@ -1,5 +1,7 @@
 'use strict'
 const wtf = require('wtf_wikipedia')
+const {maskLiteralMarkup} = require('./graph-markup')
+const {imageCaptionTargets} = require('./graph-images')
 const DEFAULT_MAX_BYTES = 16 * 1024 * 1024
 class GraphError extends Error {
   constructor(code) { super(code); this.code = code }
@@ -30,18 +32,20 @@ function extractGraph(input, {maxBytes = DEFAULT_MAX_BYTES} = {}) {
   if (input.text_state === 'empty' && input.text !== '') throw new GraphError('INVALID_TEXT_STATE')
   // XML selectors distinguish available text from missing/hidden, even at length zero.
   if (input.text === '') return out
-  // wtf 10.4.2 interprets links inside literal-extension tags as graph edges.
-  // Refuse these records rather than inventing another wikitext parser here.
-  if (/<\s*(?:nowiki|pre|source|syntaxhighlight|templatedata)\b/iu.test(input.text)) throw new GraphError('UNSUPPORTED_MARKUP')
   const saved = {}
   try {
     // The library is synchronous. Suppress its diagnostics only in this opt-in path.
     for (const k of ['log','warn','error','info','debug','trace']) { saved[k] = console[k]; console[k] = () => {} }
     // Alias only the redirect directive; all wikitext/link/category parsing is wtf.
-    const doc = wtf(input.text.replace(/^(\s*#)重新導向(?=\s*\[\[)/iu, '$1REDIRECT')
+    const doc = wtf(maskLiteralMarkup(input.text).replace(/^(\s*#)重新導向(?=\s*\[\[)/iu, '$1REDIRECT')
+      .replace(/\[\[\s*(?:文件|檔案)\s*:/gu, '[[File:')
       .replace(/\[\[\s*(?:Category|分类|分類)\s*:/giu, '[[Category:\u200b'))
     const unique = new Map()
-    for (const link of doc.links()) {
+    // wtf 10.4.2 flattens caption links before Image.links(); use a real
+    // wikitext AST for those image subtrees, never caption/body regex surgery.
+    const captionLinks = doc.images().flatMap(image =>
+      imageCaptionTargets(image.wikitext()).map(page => ({data:{type:'internal',page}})))
+    for (const link of [...doc.links(), ...captionLinks]) {
       if (link.data.type !== 'internal' || typeof link.data.page !== 'string') continue
       const target = normalizeTarget(link.data.page)
       if (!target) continue
