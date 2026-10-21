@@ -19,6 +19,13 @@ test('whole-page AST reconciliation keeps nested valid links, caption links, ali
  expect(out.categories).toEqual(['Member'])
 })
 
-test('AST unresolved target syntax still fails the output safety boundary', () => {
- expect(() => extractGraph({...base,text:'[[Bad[Caption]] [[Unresolved{{name}}]]'})).toThrow('PARSE_ERROR')
+test('AST unresolved target is partial while confirmed static graph observations survive', () => {
+ const diagnostics = {}
+ const out = extractGraph({...base,text:'[[Bad[Caption]] [[Unresolved{{name}}]] [[Before]] [[Category:Member]]'}, {diagnostics})
+ expect(out.links).toEqual([{target:'Before'}])
+ expect(out.categories).toEqual(['Member'])
+ expect(out.redirect_target).toBe(null)
+ expect(out.parse_status).toBe('partial_unresolved_target')
+ expect(diagnostics).toEqual({ast_reconciliations:1,parser_nonlinks:1,unresolved_dynamic_targets:1})
+ expect(Object.keys(out).sort()).toEqual(['page_id','ns','title','revision_id','timestamp','text_state','links','categories','redirect_target','parse_status'].sort())
 })

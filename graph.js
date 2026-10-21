@@ -44,8 +44,12 @@ function extractGraph(input, {maxBytes = DEFAULT_MAX_BYTES, diagnostics} = {}) {
     const unique = new Map()
     // wtf 10.4.2 flattens caption links before Image.links(); use a real
     // wikitext AST for those image subtrees, never caption/body regex surgery.
-    const captionLinks = doc.images().flatMap(image =>
-      imageCaptionTargets(image.wikitext()).map(page => ({data:{type:'internal',page}})))
+    let unresolved = 0
+    const captionLinks = doc.images().flatMap(image => {
+      const parsed = imageCaptionTargets(image.wikitext())
+      unresolved += parsed.unresolved
+      return parsed.targets.map(page => ({data:{type:'internal',page}}))
+    })
     let links = [...doc.links(), ...captionLinks]
     const ambiguous = links.filter(link => link.data.type === 'internal' &&
       typeof link.data.page === 'string' && !isSafeTitle(link.data.page))
@@ -56,10 +60,16 @@ function extractGraph(input, {maxBytes = DEFAULT_MAX_BYTES, diagnostics} = {}) {
       const parsed = ordinaryLinkTargets(source, ambiguous.map(link =>
         typeof link.wikitext === 'function' ? link.wikitext() : ''))
       links = parsed.targets.map(page => ({data:{type:'internal',page}}))
+      // Whole-page AST includes captions; replace rather than double count.
+      unresolved = parsed.unresolved
       if (diagnostics) {
         diagnostics.ast_reconciliations = (diagnostics.ast_reconciliations || 0) + 1
         diagnostics.parser_nonlinks = (diagnostics.parser_nonlinks || 0) + parsed.nonlinks
       }
+    }
+    if (unresolved) {
+      out.parse_status = 'partial_unresolved_target'
+      if (diagnostics) diagnostics.unresolved_dynamic_targets = (diagnostics.unresolved_dynamic_targets || 0) + unresolved
     }
     for (const link of links) {
       if (link.data.type !== 'internal' || typeof link.data.page !== 'string') continue

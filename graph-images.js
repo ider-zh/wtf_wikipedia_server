@@ -10,14 +10,30 @@ const parser = context.Parser
 // Match the graph adapter's localized namespaces without rewriting AST source.
 Object.assign(parser.config.nsid, {'分类':14,'分類':14,'文件':6,'檔案':6})
 function imageCaptionTargets(wikitext) {
-  return Array.from(parser.parse(wikitext).querySelectorAll('link'), link => String(link.firstChild))
+  return ordinaryLinkTargets(wikitext)
 }
 function ordinaryLinkTargets(wikitext, candidates = []) {
   // Only real AST link nodes are edges. Malformed bracket text is not a link;
   // nested valid links are independently represented by the upstream parser.
   const nodes = Array.from(parser.parse(wikitext).querySelectorAll('link'))
   const sources = new Set(nodes.map(String))
-  return {targets:nodes.map(link => String(link.firstChild)),
+  const targets = []
+  let unresolved = 0
+  for (const link of nodes) {
+    // Inspect only this target's AST subtree, never the display label. The
+    // installed parser represents unexpanded templates and arguments by these
+    // explicit node types; other non-text nodes are not automatically dynamic.
+    const pending = Array.from(link.firstChild.childNodes)
+    let dynamic = false
+    while (pending.length) {
+      const node = pending.pop()
+      if (node.type === 'template' || node.type === 'arg') { dynamic = true; break }
+      if (node.childNodes) for (const child of node.childNodes) pending.push(child)
+    }
+    if (dynamic) unresolved++
+    else targets.push(String(link.firstChild))
+  }
+  return {targets, unresolved,
     nonlinks:candidates.filter(source => !sources.has(source)).length}
 }
 const literalTags = ['nowiki','pre','source','syntaxhighlight','templatedata']
