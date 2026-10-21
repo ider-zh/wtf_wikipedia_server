@@ -20,4 +20,13 @@ function ordinaryLinkTargets(wikitext, candidates = []) {
   return {targets:nodes.map(link => String(link.firstChild)),
     nonlinks:candidates.filter(source => !sources.has(source)).length}
 }
-module.exports = {imageCaptionTargets, ordinaryLinkTargets}
+const literalTags = ['nowiki','pre','source','syntaxhighlight','templatedata']
+const literalConfig = {...parser.getConfig(),ext:literalTags}
+function literalMarkupRanges(wikitext) {
+  // Stage one is the official extension/comment AST, without link parsing.
+  return Array.from(parser.parse(wikitext,false,1,literalConfig).querySelectorAll('ext'), node => {
+    const start = node.getAbsoluteIndex()
+    return [start,start + String(node).length]
+  })
+}
+module.exports = {imageCaptionTargets, ordinaryLinkTargets, literalMarkupRanges}
