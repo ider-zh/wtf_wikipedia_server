@@ -1,7 +1,7 @@
 'use strict'
 const wtf = require('wtf_wikipedia')
 const {maskLiteralMarkup} = require('./graph-markup')
-const {imageCaptionTargets} = require('./graph-images')
+const {imageCaptionTargets, ordinaryLinkTargets} = require('./graph-images')
 const DEFAULT_MAX_BYTES = 16 * 1024 * 1024
 class GraphError extends Error {
   constructor(code) { super(code); this.code = code }
@@ -15,7 +15,7 @@ function normalizeTarget(value) {
   if (!isSafeTitle(value)) throw new GraphError('PARSE_ERROR')
   return value.replace(/^:/, '').split('#', 1)[0].replace(/_/g, ' ').trim()
 }
-function extractGraph(input, {maxBytes = DEFAULT_MAX_BYTES} = {}) {
+function extractGraph(input, {maxBytes = DEFAULT_MAX_BYTES, diagnostics} = {}) {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > DEFAULT_MAX_BYTES) throw new GraphError('INVALID_OPTIONS')
   if (!input || typeof input !== 'object' || Array.isArray(input) ||
       !['page_id','revision_id'].every(k => typeof input[k] === 'string' && /^\d+$/.test(input[k]) || Number.isSafeInteger(input[k]) && input[k] >= 0) ||
@@ -36,16 +36,32 @@ function extractGraph(input, {maxBytes = DEFAULT_MAX_BYTES} = {}) {
   try {
     // The library is synchronous. Suppress its diagnostics only in this opt-in path.
     for (const k of ['log','warn','error','info','debug','trace']) { saved[k] = console[k]; console[k] = () => {} }
-    // Alias only the redirect directive; all wikitext/link/category parsing is wtf.
-    const doc = wtf(maskLiteralMarkup(input.text).replace(/^(\s*#)重新導向(?=\s*\[\[)/iu, '$1REDIRECT')
+    // Preserve the required WTF parser and its namespace/directive semantics;
+    // ambiguous ordinary links are reconciled through the sandboxed AST below.
+    const source = maskLiteralMarkup(input.text).replace(/^(\s*#)重新導向(?=\s*\[\[)/iu, '$1REDIRECT')
       .replace(/\[\[\s*(?:文件|檔案)\s*:/gu, '[[File:')
-      .replace(/\[\[\s*(?:Category|分类|分類)\s*:/giu, '[[Category:\u200b'))
+    const doc = wtf(source.replace(/\[\[\s*(?:Category|分类|分類)\s*:/giu, '[[Category:\u200b'))
     const unique = new Map()
     // wtf 10.4.2 flattens caption links before Image.links(); use a real
     // wikitext AST for those image subtrees, never caption/body regex surgery.
     const captionLinks = doc.images().flatMap(image =>
       imageCaptionTargets(image.wikitext()).map(page => ({data:{type:'internal',page}})))
-    for (const link of [...doc.links(), ...captionLinks]) {
+    let links = [...doc.links(), ...captionLinks]
+    const ambiguous = links.filter(link => link.data.type === 'internal' &&
+      typeof link.data.page === 'string' && !isSafeTitle(link.data.page))
+    if (ambiguous.length) {
+      // WTF's approximate splitter can put bracket/label text into the page
+      // field. Reconcile the entire page through the real AST, never trim a
+      // broken candidate into an invented edge or bypass normalizeTarget.
+      const parsed = ordinaryLinkTargets(source, ambiguous.map(link =>
+        typeof link.wikitext === 'function' ? link.wikitext() : ''))
+      links = parsed.targets.map(page => ({data:{type:'internal',page}}))
+      if (diagnostics) {
+        diagnostics.ast_reconciliations = (diagnostics.ast_reconciliations || 0) + 1
+        diagnostics.parser_nonlinks = (diagnostics.parser_nonlinks || 0) + parsed.nonlinks
+      }
+    }
+    for (const link of links) {
       if (link.data.type !== 'internal' || typeof link.data.page !== 'string') continue
       const target = normalizeTarget(link.data.page)
       if (!target) continue
