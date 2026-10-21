@@ -20,8 +20,9 @@ function extractGraph(input, {maxBytes = DEFAULT_MAX_BYTES} = {}) {
   }
   if (typeof input.text !== 'string') throw new GraphError('INVALID_TEXT')
   if (Buffer.byteLength(input.text, 'utf8') > maxBytes) throw new GraphError('TEXT_TOO_LARGE')
-  if (input.text_state === 'empty' && input.text !== '' || input.text_state === 'present' && input.text === '') throw new GraphError('INVALID_TEXT_STATE')
-  if (input.text_state === 'empty') return out
+  if (input.text_state === 'empty' && input.text !== '') throw new GraphError('INVALID_TEXT_STATE')
+  // XML selectors distinguish available text from missing/hidden, even at length zero.
+  if (input.text === '') return out
   // wtf 10.4.2 interprets links inside literal-extension tags as graph edges.
   // Refuse these records rather than inventing another wikitext parser here.
   if (/<\s*(?:nowiki|pre|source|syntaxhighlight)\b/iu.test(input.text)) throw new GraphError('UNSUPPORTED_MARKUP')

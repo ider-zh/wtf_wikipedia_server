@@ -8,7 +8,36 @@ test('selected revision redirect ignores export-time metadata; unavailable is no
  expect(extractGraph({...base,text:'[[Normal]]',redirect_target:'WrongCurrent'}).redirect_target).toBeNull()
  for (const text_state of ['hidden','missing']) expect(extractGraph({...base,text_state,redirect_target:'WrongCurrent'})).toEqual({...base,text_state,links:[],categories:[],redirect_target:null,parse_status:'unavailable'})
  expect(extractGraph({...base,text_state:'empty',text:''}).parse_status).toBe('ok')
- expect(() => extractGraph({...base,text:''})).toThrow('INVALID_TEXT_STATE')
+ expect(() => extractGraph({...base,text_state:'empty',text:'not empty'})).toThrow('INVALID_TEXT_STATE')
+})
+test('XML selector present-empty text is available and faithfully preserved through the CLI', () => {
+ const input = {...base,text:'',redirect_target:'WrongCurrent'}
+ const result = spawnSync(process.execPath,[path.resolve(__dirname,'../graph-cli.js')],{input:JSON.stringify(input)+'\n',encoding:'utf8'})
+ expect(result.status).toBe(0)
+ expect(result.stderr).toBe('')
+ expect(JSON.parse(result.stdout)).toEqual({...base,links:[],categories:[],redirect_target:null,parse_status:'ok'})
+})
+test('CLI bounds serialized UTF-8 bytes including metadata and JSON escaping, excluding LF', () => {
+ const cli = path.resolve(__dirname,'../graph-cli.js')
+ const input = {...base,text:'<>& 中文\n"\\'}
+ const compact = JSON.stringify(input)
+ const escaped = compact.replace(/[<>&]/g, c => '\\u'+c.charCodeAt(0).toString(16).padStart(4,'0'))
+ expect(JSON.parse(escaped)).toEqual(input)
+ expect(Buffer.byteLength(escaped)).toBeGreaterThan(Buffer.byteLength(compact))
+ const run = (line,limit) => spawnSync(process.execPath,[cli,'--max-line-bytes',String(limit)],{input:line+'\n',encoding:'utf8'})
+ const accepted = run(compact,Buffer.byteLength(compact))
+ expect(accepted.status).toBe(0)
+ expect(accepted.stderr).toBe('')
+ const expanded = run(escaped,Buffer.byteLength(escaped))
+ expect(expanded.status).toBe(0)
+ expect(expanded.stderr).toBe('')
+ expect(expanded.stdout).toBe(accepted.stdout)
+ for (const [line,limit] of [[compact,Buffer.byteLength(compact)-1],[escaped,Buffer.byteLength(compact)]]) {
+  const rejected = run(line,limit)
+  expect(rejected.status).toBe(1)
+  expect(rejected.stdout).toBe('')
+  expect(JSON.parse(rejected.stderr)).toEqual({code:'LINE_TOO_LARGE',request_id:1})
+ }
 })
 test('CLI is bounded, fail closed, graph-only and leaves no files', () => {
  const cwd = fs.mkdtempSync(path.join(process.env.TMPDIR || '.', 'graph-test-'))
