@@ -12,6 +12,23 @@ Object.assign(parser.config.nsid, {'分类':14,'分類':14,'文件':6,'檔案':6
 function imageCaptionTargets(wikitext) {
   return ordinaryLinkTargets(wikitext)
 }
+function hasDynamicTarget(target) {
+  // Target subtree only: display labels and category sortkeys are not targets.
+  const pending = Array.from(target.childNodes)
+  while (pending.length) {
+    const node = pending.pop()
+    if (node.type === 'template' || node.type === 'arg') return true
+    if (node.childNodes) for (const child of node.childNodes) pending.push(child)
+  }
+  return false
+}
+function dynamicCategoryTargets(wikitext) {
+  return new Set(Array.from(parser.parse(wikitext).querySelectorAll('category'))
+    .filter(category => hasDynamicTarget(category.firstChild))
+    // Strip only the membership namespace and outer title whitespace. Keep
+    // expression spelling/case/underscores intact for exact reconciliation.
+    .map(category => String(category.firstChild).replace(/^(?:Category|分类|分類)\s*:/iu, '').trim()))
+}
 function ordinaryLinkTargets(wikitext, candidates = []) {
   // Only real AST link nodes are edges. Malformed bracket text is not a link;
   // nested valid links are independently represented by the upstream parser.
@@ -23,14 +40,7 @@ function ordinaryLinkTargets(wikitext, candidates = []) {
     // Inspect only this target's AST subtree, never the display label. The
     // installed parser represents unexpanded templates and arguments by these
     // explicit node types; other non-text nodes are not automatically dynamic.
-    const pending = Array.from(link.firstChild.childNodes)
-    let dynamic = false
-    while (pending.length) {
-      const node = pending.pop()
-      if (node.type === 'template' || node.type === 'arg') { dynamic = true; break }
-      if (node.childNodes) for (const child of node.childNodes) pending.push(child)
-    }
-    if (dynamic) unresolved++
+    if (hasDynamicTarget(link.firstChild)) unresolved++
     else targets.push(String(link.firstChild))
   }
   return {targets, unresolved,
@@ -45,4 +55,4 @@ function literalMarkupRanges(wikitext) {
     return [start,start + String(node).length]
   })
 }
-module.exports = {imageCaptionTargets, ordinaryLinkTargets, literalMarkupRanges}
+module.exports = {imageCaptionTargets, ordinaryLinkTargets, dynamicCategoryTargets, literalMarkupRanges}

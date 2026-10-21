@@ -1,7 +1,7 @@
 'use strict'
 const wtf = require('wtf_wikipedia')
 const {maskLiteralMarkup} = require('./graph-markup')
-const {imageCaptionTargets, ordinaryLinkTargets} = require('./graph-images')
+const {imageCaptionTargets, ordinaryLinkTargets, dynamicCategoryTargets} = require('./graph-images')
 const DEFAULT_MAX_BYTES = 16 * 1024 * 1024
 class GraphError extends Error {
   constructor(code) { super(code); this.code = code }
@@ -67,10 +67,6 @@ function extractGraph(input, {maxBytes = DEFAULT_MAX_BYTES, diagnostics} = {}) {
         diagnostics.parser_nonlinks = (diagnostics.parser_nonlinks || 0) + parsed.nonlinks
       }
     }
-    if (unresolved) {
-      out.parse_status = 'partial_unresolved_target'
-      if (diagnostics) diagnostics.unresolved_dynamic_targets = (diagnostics.unresolved_dynamic_targets || 0) + unresolved
-    }
     for (const link of links) {
       if (link.data.type !== 'internal' || typeof link.data.page !== 'string') continue
       const target = normalizeTarget(link.data.page)
@@ -80,7 +76,26 @@ function extractGraph(input, {maxBytes = DEFAULT_MAX_BYTES, diagnostics} = {}) {
       unique.set(target, item)
     }
     out.links = [...unique.values()].sort((a,b) => a.target < b.target ? -1 : a.target > b.target ? 1 : 0)
-    out.categories = [...new Set(doc.categories().map(c => normalizeTarget(c.replace(/^\u200b/, ''))).filter(Boolean))].sort()
+    let dynamicCategories
+    const categories = []
+    for (const value of doc.categories()) {
+      const candidate = value.replace(/^\u200b/, '')
+      if (!isSafeTitle(candidate)) {
+        // Reconcile only unsafe WTF membership candidates, and only against
+        // exact AST-proven dynamic targets modulo namespace/outer whitespace.
+        // No expression truncation, underscore/fragment removal or folding
+        // of target case is permitted. Unmatched unsafe values remain fatal.
+        if (!dynamicCategories) dynamicCategories = dynamicCategoryTargets(source)
+        if (dynamicCategories.has(candidate.trim())) { unresolved++; continue }
+      }
+      const target = normalizeTarget(candidate)
+      if (target) categories.push(target)
+    }
+    out.categories = [...new Set(categories)].sort()
+    if (unresolved) {
+      out.parse_status = 'partial_unresolved_target'
+      if (diagnostics) diagnostics.unresolved_dynamic_targets = (diagnostics.unresolved_dynamic_targets || 0) + unresolved
+    }
     const redirect = doc.isRedirect() && doc.redirectTo()
     const target = redirect && redirect.page
     out.redirect_target = typeof target === 'string' ? normalizeTarget(target) || null : null

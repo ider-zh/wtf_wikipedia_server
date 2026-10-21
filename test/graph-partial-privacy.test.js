@@ -48,7 +48,8 @@ test('CLI preserves a valid prefix, emits a partial record, continues, and keeps
  } finally {fs.rmSync(dir,{recursive:true})}
 })
 
-test.each(['[[Bad[Caption]] [[{{x}}]] [[A\u0001B]]','[[Category:Bad{{x}}]]','#REDIRECT [[Bad{{x}}]]','{{percentage|1|2|decimals=101}}'])(
+// AST-proven dynamic categories now share the partial contract; static braces do not.
+test.each(['[[Bad[Caption]] [[{{x}}]] [[A\u0001B]]','[[Category:Bad{x}]]','#REDIRECT [[Bad{{x}}]]','{{percentage|1|2|decimals=101}}'])(
  'partial policy does not suppress a subsequent fatal parser/title error: %s', bad => {
   const canary = randomUUID()
   const prefix = [{...base,text:'[[Previous]]'},partial(canary)]
