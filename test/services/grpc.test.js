@@ -3,11 +3,11 @@ const { spawn } = require('child_process');
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
 
-const PROTO_PATH = path.resolve(__dirname, '../protos/wikiTextParser.proto');
+const PROTO_PATH = path.resolve(__dirname, '../../protos/wikiTextParser.proto');
 const PORT = 30199;
 const HOST = '127.0.0.1';
 const ADDRESS = `${HOST}:${PORT}`;
-const ROOT = path.resolve(__dirname, '..');
+const ROOT = path.resolve(__dirname, '../..');
 
 function loadClient() {
     const packageDefinition = protoLoader.loadSync(
@@ -24,7 +24,7 @@ let serverProc;
 beforeAll((done) => {
     serverProc = spawn(
         process.execPath,
-        ['grpcServer.js', '--port', String(PORT), '--host', HOST, '--worker', 'full'],
+        ['src/grpc/server.js', '--port', String(PORT), '--host', HOST, '--worker', 'full'],
         { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] }
     );
 

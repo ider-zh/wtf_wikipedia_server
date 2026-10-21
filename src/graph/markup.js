@@ -1,6 +1,6 @@
 'use strict'
 const {Tokenizer} = require('htmlparser2')
-const {literalMarkupRanges} = require('./graph-images')
+const {literalMarkupRanges} = require('./ast')
 const literalTags = new Set(['nowiki','pre','source','syntaxhighlight','templatedata'])
 const noop = () => {}
 

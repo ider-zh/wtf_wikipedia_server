@@ -1,5 +1,5 @@
-const {ordinaryLinkTargets, imageCaptionTargets} = require('../graph-images')
-const {extractGraph} = require('../graph')
+const {ordinaryLinkTargets, imageCaptionTargets} = require('../../src/graph/ast')
+const {extractGraph} = require('../../src/graph')
 const base = {page_id:'1',ns:0,title:'Title',revision_id:'2',timestamp:'2001-01-01T00:00:00Z',text_state:'present'}
 
 test('caption AST classifies dynamic targets without treating display templates as targets', () => {

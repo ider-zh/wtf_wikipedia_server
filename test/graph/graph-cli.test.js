@@ -3,7 +3,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const base = {page_id:'1',ns:0,title:'MixedCase',revision_id:'2',timestamp:'2001-03-31T23:59:59Z',text_state:'present'}
 test('selected revision redirect ignores export-time metadata; unavailable is not empty', () => {
- const {extractGraph} = require('../graph')
+ const {extractGraph} = require('../../src/graph')
  for (const directive of ['REDIRECT','重定向','重新導向']) expect(extractGraph({...base,text:`#${directive} [[Historical_Target#fragment]]`,redirect_target:'WrongCurrent'}).redirect_target).toBe('Historical Target')
  expect(extractGraph({...base,text:'[[Normal]]',redirect_target:'WrongCurrent'}).redirect_target).toBeNull()
  for (const text_state of ['hidden','missing']) expect(extractGraph({...base,text_state,redirect_target:'WrongCurrent'})).toEqual({...base,text_state,links:[],categories:[],redirect_target:null,parse_status:'unavailable'})
@@ -12,13 +12,13 @@ test('selected revision redirect ignores export-time metadata; unavailable is no
 })
 test('XML selector present-empty text is available and faithfully preserved through the CLI', () => {
  const input = {...base,text:'',redirect_target:'WrongCurrent'}
- const result = spawnSync(process.execPath,[path.resolve(__dirname,'../graph-cli.js')],{input:JSON.stringify(input)+'\n',encoding:'utf8'})
+ const result = spawnSync(process.execPath,[path.resolve(__dirname,'../../bin/graph.js')],{input:JSON.stringify(input)+'\n',encoding:'utf8'})
  expect(result.status).toBe(0)
  expect(result.stderr).toBe('')
  expect(JSON.parse(result.stdout)).toEqual({...base,links:[],categories:[],redirect_target:null,parse_status:'ok'})
 })
 test('CLI bounds serialized UTF-8 bytes including metadata and JSON escaping, excluding LF', () => {
- const cli = path.resolve(__dirname,'../graph-cli.js')
+ const cli = path.resolve(__dirname,'../../bin/graph.js')
  const input = {...base,text:'<>& 中文\n"\\'}
  const compact = JSON.stringify(input)
  const escaped = compact.replace(/[<>&]/g, c => '\\u'+c.charCodeAt(0).toString(16).padStart(4,'0'))
@@ -42,7 +42,7 @@ test('CLI bounds serialized UTF-8 bytes including metadata and JSON escaping, ex
 test('CLI is bounded, fail closed, graph-only and leaves no files', () => {
  const cwd = fs.mkdtempSync(path.join(process.env.TMPDIR || '.', 'graph-test-'))
  const canary = 'PRIVACY_' + Date.now()
- const cli = path.resolve(__dirname,'../graph-cli.js')
+ const cli = path.resolve(__dirname,'../../bin/graph.js')
  const run = (input,args=[]) => spawnSync(process.execPath,[cli,...args],{input,encoding:'utf8',cwd})
  try {
   const valid = run([JSON.stringify({...base,text:`${canary} [[Safe|${canary}]]`}),JSON.stringify({...base,text_state:'hidden'})].join('\n'))

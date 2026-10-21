@@ -2,9 +2,9 @@ const fs = require('node:fs')
 const path = require('node:path')
 const {randomUUID} = require('node:crypto')
 const {spawnSync} = require('node:child_process')
-const {extractGraph} = require('../graph')
+const {extractGraph} = require('../../src/graph')
 const base = {page_id:'1',ns:0,title:'Title',revision_id:'2',timestamp:'2001-01-01T00:00:00Z',text_state:'present'}
-const cli = path.resolve(__dirname,'../graph-cli.js')
+const cli = path.resolve(__dirname,'../../bin/graph.js')
 
 function partial(canary) {
  return {...base,text:`BODY_${canary} [[Bad[Caption]] [[{{${canary}|a|b}}]] [[Confirmed]] [[Category:Member]]`}
@@ -19,7 +19,7 @@ test('partial AST classification does not log, retain bodies or load the crash r
   expect(out.parse_status).toBe('partial_unresolved_target')
   expect(JSON.stringify(out)).not.toContain(canary)
   for (const spy of [...consoles,...writes]) expect(spy).not.toHaveBeenCalled()
-  expect(Object.keys(require.cache).some(p => p.endsWith('/crashCase.js') || p.endsWith('/wikiparser-node/dist/index.js'))).toBe(false)
+  expect(Object.keys(require.cache).some(p => p.endsWith('/crash-case.js') || p.endsWith('/wikiparser-node/dist/index.js'))).toBe(false)
  } finally { for (const spy of [...consoles,...writes]) spy.mockRestore() }
 })
 

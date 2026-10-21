@@ -1,14 +1,15 @@
 {
   "name": "wtf_wikipedia_server",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "src/graph/index.js",
   "scripts": {
-    "http": "node expressServer.js",
-    "grpc": "node grpcServer.js",
-    "grpc:full": "node grpcServer.js --worker full",
-    "grpc:tiny": "node grpcServer.js --worker tiny",
-    "grpcTest": "node grpcClient.js",
-    "test": "jest"
+    "http": "node src/http/server.js",
+    "grpc": "node src/grpc/server.js",
+    "grpc:full": "node src/grpc/server.js --worker full",
+    "grpc:tiny": "node src/grpc/server.js --worker tiny",
+    "grpcTest": "node examples/grpc-client.js",
+    "graph": "node bin/graph.js",
+    "test": "node node_modules/jest/bin/jest.js"
   },
   "jest": {
     "testEnvironment": "node",

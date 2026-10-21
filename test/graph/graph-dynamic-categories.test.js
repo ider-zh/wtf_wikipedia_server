@@ -2,10 +2,10 @@ const fs = require('node:fs')
 const path = require('node:path')
 const {randomUUID} = require('node:crypto')
 const {spawnSync} = require('node:child_process')
-const {extractGraph} = require('../graph')
-const {dynamicCategoryTargets} = require('../graph-images')
+const {extractGraph} = require('../../src/graph')
+const {dynamicCategoryTargets} = require('../../src/graph/ast')
 const base = {page_id:'1',ns:0,title:'Title',revision_id:'2',timestamp:'2001-01-01T00:00:00Z',text_state:'present'}
-const cli = path.resolve(__dirname,'../graph-cli.js')
+const cli = path.resolve(__dirname,'../../bin/graph.js')
 
 test('AST-proven dynamic category membership makes the record partial without an invented edge', () => {
  const diagnostics = {}
@@ -106,9 +106,9 @@ test('unexpanded pipe-containing category candidates stay fatal unless their ful
 
 test('safe membership pages do not invoke the on-demand category AST reconciliation', () => {
  jest.isolateModules(() => {
-  const helpers = require('../graph-images')
+  const helpers = require('../../src/graph/ast')
   const spy = jest.spyOn(helpers,'dynamicCategoryTargets')
-  const isolated = require('../graph').extractGraph
+  const isolated = require('../../src/graph').extractGraph
   try {
    isolated({...base,text:'[[Static]] [[Category:A]] [[Category:Static|{{x}}]]'})
    expect(spy).not.toHaveBeenCalled()
@@ -129,7 +129,7 @@ test('category partial results do not expose canaries, log, write files or load 
   expect(JSON.stringify({out,diagnostics})).not.toContain(canary)
   expect(Object.values(diagnostics).every(Number.isSafeInteger)).toBe(true)
   for (const spy of [...consoles,...writes]) expect(spy).not.toHaveBeenCalled()
-  expect(Object.keys(require.cache).some(p => p.endsWith('/crashCase.js') || p.endsWith('/wikiparser-node/dist/index.js'))).toBe(false)
+  expect(Object.keys(require.cache).some(p => p.endsWith('/crash-case.js') || p.endsWith('/wikiparser-node/dist/index.js'))).toBe(false)
  } finally {for (const spy of [...consoles,...writes]) spy.mockRestore()}
 })
 

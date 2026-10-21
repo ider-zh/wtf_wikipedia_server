@@ -1,6 +1,6 @@
 const fs = require('node:fs')
 const vm = require('node:vm')
-const {extractGraph} = require('../graph')
+const {extractGraph} = require('../../src/graph')
 // Independent oracle: pinned official browser AST, never the Node crash recorder.
 const context = vm.createContext({})
 vm.runInContext(fs.readFileSync(require.resolve('wikiparser-node/bundle/bundle-es10.min.js'), 'utf8'), context)

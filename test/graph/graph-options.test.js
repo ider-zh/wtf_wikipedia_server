@@ -1,4 +1,4 @@
-const {extractGraph, GraphError, DEFAULT_MAX_BYTES} = require('../graph')
+const {extractGraph, GraphError, DEFAULT_MAX_BYTES} = require('../../src/graph')
 const base = {page_id:'1',ns:0,title:'Title',revision_id:'2',timestamp:'2001-01-01T00:00:00Z',text_state:'present',text:''}
 
 test.each([

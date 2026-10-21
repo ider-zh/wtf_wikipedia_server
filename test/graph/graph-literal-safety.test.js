@@ -1,7 +1,7 @@
 const {spawnSync} = require('node:child_process')
 const {randomUUID} = require('node:crypto')
 const path = require('node:path')
-const {extractGraph} = require('../graph')
+const {extractGraph} = require('../../src/graph')
 const base = {page_id:'1',ns:0,title:'Title',revision_id:'9007199254740993',timestamp:'2001-01-01T00:00:00Z',text_state:'present'}
 const literal = '{"description":"[[LiteralTarget]] [[Category:LiteralCategory]]","params":{}}'
 const cases = ['nowiki','pre','source','syntaxhighlight','templatedata'].flatMap(tag => [
@@ -36,7 +36,7 @@ test.each([
 test('templatedata CLI emits only complete graph records, exact decimal IDs, no body/canary', () => {
  const canary = 'LITERAL_' + randomUUID()
  const text = `<templatedata>{"description":"${canary} [[LiteralTarget]] [[Category:LiteralCategory]]","params":{}}</templatedata> [[Visible]]`
- const result = spawnSync(process.execPath,[path.resolve(__dirname,'../graph-cli.js')],{input:JSON.stringify({...base,text})+'\n',encoding:'utf8'})
+ const result = spawnSync(process.execPath,[path.resolve(__dirname,'../../bin/graph.js')],{input:JSON.stringify({...base,text})+'\n',encoding:'utf8'})
  expect(result.status).toBe(0)
  expect(result.stderr).toBe('')
  expect(JSON.parse(result.stdout)).toEqual({...base,links:[{target:'Visible'}],categories:[],redirect_target:null,parse_status:'ok'})

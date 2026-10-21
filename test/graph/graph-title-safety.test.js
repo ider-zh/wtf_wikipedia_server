@@ -1,7 +1,7 @@
 const {spawnSync} = require('node:child_process')
 const {randomUUID} = require('node:crypto')
 const path = require('node:path')
-const {extractGraph} = require('../graph')
+const {extractGraph} = require('../../src/graph')
 const base = {page_id:'1',ns:0,title:'Title',revision_id:'2',timestamp:'2001-01-01T00:00:00Z',text_state:'present'}
 
 test.each([
@@ -32,7 +32,7 @@ test('invalid output title cannot leak a body or a partial current record throug
  const previous = {...base,text:'[[Previous]]'}
  const expectedPrefix = JSON.stringify(extractGraph(previous)) + '\n'
  for (const prefix of ['', JSON.stringify(previous) + '\n']) {
-  const result = spawnSync(process.execPath,[path.resolve(__dirname,'../graph-cli.js')],{
+  const result = spawnSync(process.execPath,[path.resolve(__dirname,'../../bin/graph.js')],{
    input:prefix + JSON.stringify({...base,text}) + '\n',encoding:'utf8'
   })
   expect(result.status).toBe(1)
